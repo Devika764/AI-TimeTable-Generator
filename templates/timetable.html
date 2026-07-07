@@ -1,0 +1,399 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<!-- ═══════════════════════════════════════════════════════════
+     FILTER BAR  (Premium Glossy Card)
+═══════════════════════════════════════════════════════════════ -->
+<div class="card no-print" style="margin-bottom:2rem; background: var(--card-bg); border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 8px 32px rgba(0,0,0,0.3);">
+  <form method="GET" action="{{ url_for('view_timetable') }}" id="ttFilter">
+    <div class="grid" style="align-items:end; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) auto; gap:1.5rem; padding: 0.5rem;">
+
+      <div class="form-group mb-0">
+        <label class="form-label" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-color);">Department</label>
+        <select id="f_dept" class="form-control" style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1);">
+          <option value="">— Select Dept —</option>
+          {% for d in departments %}
+          <option value="{{ d.id }}">{{ d.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group mb-0" id="f_branch_grp" style="display:none;">
+        <label class="form-label" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-color);">Branch</label>
+        <select id="f_branch" class="form-control" style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1);"><option value="">— Select —</option></select>
+      </div>
+
+      <div class="form-group mb-0" id="f_sem_grp" style="display:none;">
+        <label class="form-label" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-color);">Semester</label>
+        <select id="f_sem" class="form-control" style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1);"><option value="">— Select —</option></select>
+      </div>
+
+      <div class="form-group mb-0" id="f_sec_grp" style="display:none;">
+        <label class="form-label" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-color);">Section</label>
+        <select id="f_sec" name="filter_id" class="form-control" style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1);"><option value="">— Select —</option></select>
+        <input type="hidden" name="filter_type" value="section">
+      </div>
+
+      <button type="submit" class="btn" style="height: 44px; padding: 0 2rem; background: linear-gradient(135deg, var(--accent-color), #4facfe); border: none; box-shadow: 0 4px 15px rgba(0,123,255,0.3);">
+        View Timetable
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+(function(){
+  const dS=document.getElementById('f_dept'), bS=document.getElementById('f_branch'), sS=document.getElementById('f_sem'), xS=document.getElementById('f_sec');
+  function rst(sel,grp){sel.innerHTML='<option value="">— Select —</option>';document.getElementById(grp).style.display='none';}
+  dS.addEventListener('change',function(){
+    rst(bS,'f_branch_grp'); rst(sS,'f_sem_grp'); rst(xS,'f_sec_grp');
+    if(!this.value)return;
+    fetch('/api/branches?dept_id='+this.value).then(r=>r.json()).then(bs=>{
+      bs.forEach(b=>{let o=document.createElement('option');o.value=b.id;o.textContent=b.name;bS.appendChild(o);});
+      document.getElementById('f_branch_grp').style.display='';
+    });
+  });
+  bS.addEventListener('change',function(){
+    rst(sS,'f_sem_grp'); rst(xS,'f_sec_grp');
+    if(!this.value)return;
+    fetch('/api/semesters?branch_id='+this.value).then(r=>r.json()).then(ss=>{
+      ss.forEach(s=>{let o=document.createElement('option');o.value=s.semester;o.textContent=s.label;sS.appendChild(o);});
+      document.getElementById('f_sem_grp').style.display='';
+    });
+  });
+  sS.addEventListener('change',function(){
+    rst(xS,'f_sec_grp');
+    if(!this.value||!bS.value)return;
+    fetch('/api/sections?branch_id='+bS.value+'&semester='+this.value).then(r=>r.json()).then(xs=>{
+      xs.forEach(x=>{let o=document.createElement('option');o.value=x.id;o.textContent='Section '+x.section;xS.appendChild(o);});
+      document.getElementById('f_sec_grp').style.display='';
+    });
+  });
+})();
+</script>
+
+{% if not class_section %}
+<div class="card" style="text-align:center; padding:5rem 2rem; background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.1);">
+  <div style="font-size:4rem; margin-bottom:1.5rem; filter: drop-shadow(0 0 10px var(--accent-color));">📅</div>
+  <h2 style="color: #fff;">Timetable Viewer</h2>
+  <p style="color: var(--text-muted); max-width: 500px; margin: 0 auto;">Select a Class Section from the filters above to generate a high-definition, printable version of the current academic schedule.</p>
+</div>
+{% else %}
+
+<!-- ═══════════════════════════════════════════════════════════
+     DOCUMENT AREA (Glossy Preview in Web, Clean B&W in Print)
+═══════════════════════════════════════════════════════════════ -->
+<div id="printableAreaContainer" style="perspective: 1000px;">
+<div id="printableArea" class="tt-document-view">
+<style>
+  :root {
+      --tt-border: #cbd5e1;
+      --tt-header-color: #0f172a;
+      --tt-brand: #e11d48;
+      --tt-lab-bg: #f0f9ff;
+      --tt-lab-text: #0284c7;
+  }
+  .tt-document-view {
+      background: #ffffff;
+      color: #0f172a;
+      font-family: 'Inter', system-ui, sans-serif;
+      max-width: 1050px;
+      margin: 0 auto;
+      padding: 12px 20px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+      border-radius: 12px;
+      transform: rotateX(2deg);
+      transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  .tt-document-view:hover { transform: rotateX(0deg); }
+
+  .tt-header { display:flex; align-items:center; border-bottom:2px solid var(--tt-header-color); padding-bottom:4px; margin-bottom:6px; }
+  .tt-logo { width:55px; height:55px; border:2px solid var(--tt-header-color); border-radius:50%; display:flex; align-items:center; justify-content:center; text-align:center; overflow:hidden; background:#fff; box-shadow: inset 0 0 10px rgba(0,0,0,0.05); }
+  .tt-logo div { font-size: 8px !important; }
+  .tt-college { flex:1; text-align:center; }
+  .tt-college h1 { font-family: 'Times New Roman', serif; font-size:1.25rem; font-weight:900; margin:0 0 2px 0; color: var(--tt-header-color); text-transform: uppercase; letter-spacing: 1px; }
+  .tt-college .sub { font-family: 'Inter', sans-serif; font-size:0.65rem; color:#475569; line-height:1.2; font-weight: 500; }
+  .tt-naac { border:2px solid var(--tt-brand); padding:4px 8px; text-align:center; font-size:0.6rem; font-weight:700; border-radius: 6px; background: #fff1f2; }
+  .tt-naac .naac { font-size:1rem; font-weight:900; color:var(--tt-brand); letter-spacing: 1px; }
+
+  .tt-info-container { display: flex; justify-content: space-between; margin-bottom: 6px; font-family: 'Inter', sans-serif; gap: 10px; }
+  .tt-info-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 10px; flex: 1; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+  .tt-info-row { display: flex; justify-content: space-between; margin-bottom: 2px; align-items: center; }
+  .tt-info-row:last-child { margin-bottom: 0; }
+  .tt-info-label { font-size: 0.65rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  .tt-info-value { font-size: 0.8rem; color: #0f172a; font-weight: 800; }
+
+  table.tt-main { width:100%; border-collapse: separate; border-spacing: 0; margin-bottom:6px; table-layout: fixed; border: 1.5px solid var(--tt-header-color); border-radius: 4px; overflow: hidden; box-shadow: 0 2px 4px -1px rgba(0,0,0,0.05); }
+  table.tt-main th, table.tt-main td { border-bottom: 1px solid var(--tt-border); border-right: 1px solid var(--tt-border); text-align:center; vertical-align:middle; overflow: hidden; }
+  table.tt-main th:last-child, table.tt-main td:last-child { border-right: none; }
+  table.tt-main tr:last-child td { border-bottom: none; }
+  
+  table.tt-main th { background:#f1f5f9; color: #334155; font-size:0.65rem; padding: 3px 2px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+  table.tt-main .day-col { background:#f8fafc; font-weight:800; width: 50px; font-size: 0.75rem; color: var(--tt-header-color); }
+  table.tt-main .cell { height: 38px; padding: 2px; transition: background 0.2s; }
+  table.tt-main .cell:hover { background: #f8fafc; }
+  table.tt-main .abbr { font-size: 0.8rem; font-weight: 800; color: #0f172a; display: block; margin-bottom: 1px; letter-spacing: 0.5px; line-height: 1; }
+  table.tt-main .fac { font-size: 0.6rem; font-weight: 700; color: #475569; display: inline-block; background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }
+  table.tt-main .lab-highlight { background: var(--tt-lab-bg) !important; position: relative; }
+  table.tt-main .lab-highlight .fac { background: #e0f2fe; color: var(--tt-lab-text); }
+  table.tt-main .lab-highlight::after { content: 'LAB'; position: absolute; top: 1px; right: 2px; font-size: 0.45rem; background: var(--tt-lab-text); color: #fff; padding: 1px 3px; border-radius: 3px; font-weight: 800; letter-spacing: 0.5px; }
+  
+  .tt-break-col { width: 25px; background: #fafafa; font-size: 0.7rem; font-weight: 900; text-align: center; color: #94a3b8; letter-spacing: 2px; }
+
+  .tt-section-title { font-size: 0.8rem; font-weight: 900; color: var(--tt-header-color); text-transform: uppercase; letter-spacing: 1px; background: #f1f5f9; display: inline-block; padding: 3px 8px; border-radius: 4px; margin-bottom: 4px; border-left: 3px solid var(--tt-brand); }
+  
+  table.staff-table { width:100%; border-collapse: separate; border-spacing: 0; margin-bottom: 6px; font-size: 0.7rem; border: 1px solid var(--tt-border); border-radius: 4px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+  table.staff-table th { background:var(--tt-header-color); color:#fff; padding:3px 6px; font-weight:700; text-align: left; letter-spacing: 0.5px; font-size: 0.65rem; text-transform: uppercase; }
+  table.staff-table td { border-bottom:1px solid #e2e8f0; padding:3px 6px; color: #1e293b; font-weight: 600; line-height: 1.1; }
+  table.staff-table tr:last-child td { border-bottom: none; }
+  table.staff-table tr:nth-child(even) td { background: #f8fafc; }
+  table.staff-table .subject-code { font-family: 'ui-monospace', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace; color: #64748b; font-size: 0.65rem; background: #f1f5f9; padding: 1px 4px; border-radius: 3px; border: 1px solid #e2e8f0; font-weight: 700; }
+
+  .tt-footer { display:flex; justify-content:space-between; margin-top:8px; padding: 0 10px; }
+  .tt-sig { text-align: center; width: 200px; border-top: 1.5px dashed #94a3b8; padding-top: 3px; font-weight: 800; font-size: 0.65rem; color: #475569; text-transform: uppercase; letter-spacing: 1px; }
+
+  @media print {
+      body { background: #fff; margin: 0; padding: 0; }
+      #printableArea, #printableArea * { 
+          -webkit-print-color-adjust: exact !important; 
+          print-color-adjust: exact !important; 
+      }
+      #printableArea { 
+          max-width: 100%; border: none; box-shadow: none; margin: 0; padding: 0; 
+          zoom: 0.75 !important;
+          transform: scale(0.95); 
+          transform-origin: top left;
+          page-break-inside: avoid !important;
+      }
+      #printableAreaContainer { 
+          margin: 0; padding: 0; width: 100%; height: auto;
+      }
+      table.tt-main, table.staff-table, .tt-footer, .tt-header { page-break-inside: avoid !important; }
+      table.tt-main th { background: #f1f5f9 !important; color: #000 !important; }
+      table.staff-table th { background: #0f172a !important; color: #fff !important; }
+      .lab-highlight { background: #f0f9ff !important; }
+      
+      @page {
+          size: A4 landscape;
+          margin: 5mm;
+      }
+  }
+</style>
+
+<!-- Header -->
+<div class="tt-header">
+  <div class="tt-logo">
+    <div style="font-size: 10px; font-weight: 900; line-height: 1;">MIC<br>TECH</div>
+  </div>
+  <div class="tt-college">
+    <div style="font-size: 0.8rem; font-weight: bold; color: #444; margin-bottom: -5px;">DVR & Dr. HS</div>
+    <h1>MIC College of Technology</h1>
+    <div class="sub">
+      <strong>AUTONOMOUS</strong><br>
+      Approved by AICTE & Permanently Affiliated to JNTUK, Kakinada<br>
+      Kanchikacherla, NTR Dist, A.P, India. Pin: 521180
+    </div>
+  </div>
+  <div class="tt-naac">
+    <div style="font-size:0.5rem;">Accredited by</div>
+    <div class="naac">NAAC A<sup>+</sup></div>
+    <div style="font-size:0.5rem;">ISO 9001:2015</div>
+  </div>
+</div>
+
+<!-- Info Grid -->
+<div class="tt-info-container">
+  <div class="tt-info-box">
+    <div class="tt-info-row">
+      <span class="tt-info-label">Department</span>
+      <span class="tt-info-value">{{ dept.name if dept else '---' }}</span>
+    </div>
+    <div class="tt-info-row">
+      <span class="tt-info-label">Class & Semester</span>
+      <span class="tt-info-value">B.Tech - {{ class_section.year_roman }} {{ branch.name if branch else '---' }} &ndash; {{ class_section.section }} / {{ class_section.sem_roman }} SEM</span>
+    </div>
+  </div>
+  <div class="tt-info-box">
+    <div class="tt-info-row">
+      <span class="tt-info-label">Room No.</span>
+      <span class="tt-info-value" style="color:var(--tt-brand); font-size: 1.1rem;">{{ room_display }}</span>
+    </div>
+    <div class="tt-info-row">
+      <span class="tt-info-label">Academic Year</span>
+      <span class="tt-info-value">2025-2026</span>
+    </div>
+  </div>
+</div>
+
+<!-- Main Grid -->
+<table class="tt-main">
+  <thead>
+    <tr>
+      <th rowspan="2" class="day-col">DAY</th>
+      <th>1</th>
+      <th>2</th>
+      <th rowspan="2" class="tt-break-col">B<br>R<br>E<br>A<br>K</th>
+      <th>3</th>
+      <th>4</th>
+      <th rowspan="2" class="tt-break-col">L<br>U<br>N<br>C<br>H</th>
+      <th>5</th>
+      <th>6</th>
+      <th>7</th>
+      <th>REMEDIAL</th>
+    </tr>
+    <tr>
+      {% for s in slots %}
+      <th>{{ s.start_time }}<br>{{ s.end_time }}</th>
+      {% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for day in days %}
+    <tr>
+      <td class="day-col">{{ day.day_name[:3].upper() }}</td>
+      
+      {% for si in range(8) %}
+        {% set slot = slots[si] %}
+        {% set cell = matrix.get(day.id, {}).get(slot.id, {}) %}
+        
+        {% if si == 2 %} <!-- Vertical Break -->
+          <td class="tt-break-col">{{ break_ltr.get(day.day_name, '') }}</td>
+        {% endif %}
+        {% if si == 4 %} <!-- Vertical Lunch -->
+          <td class="tt-break-col">{{ lunch_ltr.get(day.day_name, '') }}</td>
+        {% endif %}
+
+        <td class="cell {% if cell.is_lab %}lab-highlight{% endif %}">
+          {% if cell.abbr %}
+            <span class="abbr">{{ cell.abbr }}</span>
+            <span class="fac">{{ cell.faculty }}</span>
+          {% endif %}
+        </td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- Staff Mapping -->
+<div class="tt-section-title">
+  Subjects & Faculty Details
+</div>
+<table class="staff-table">
+  <thead>
+    <tr>
+      <th style="width: 60px; text-align: center;">S.NO</th>
+      <th style="width: 140px;">CODE</th>
+      <th>SUBJECT NAME</th>
+      <th style="width: 100px; text-align: center;">ABBR</th>
+      <th>NAME OF THE FACULTY</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in subject_faculty %}
+    <tr>
+      <td style="text-align: center; color: #64748b; font-weight: 700;">{{ loop.index }}</td>
+      <td><span class="subject-code">{{ row.subject.code }}</span></td>
+      <td>{{ row.subject.name }}</td>
+      <td style="text-align: center; font-weight: 800; color: var(--tt-header-color);">{{ row.abbr }}</td>
+      <td>{{ row.faculty }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- Footer signatures -->
+<div class="tt-footer">
+  <div class="tt-sig">TIME TABLE IN-CHARGE</div>
+  <div class="tt-sig" style="width: 250px;">HEAD OF THE DEPARTMENT</div>
+  <div class="tt-sig">PRINCIPAL</div>
+</div>
+
+</div><!-- end tt-document-view -->
+</div><!-- end printableAreaContainer -->
+
+<!-- PDF Export Libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<div class="no-print" style="text-align:center; margin-top:2.5rem; display: flex; justify-content: center; gap: 1rem;">
+  <button onclick="window.print()" class="btn btn-primary" style="padding: 0.8rem 2.5rem; background: var(--secondary); border-radius: 50px; color: #000; font-weight: 800; border: none;">
+    🖨 Print
+  </button>
+
+  <button onclick="exportToPDF()" id="pdfBtn" class="btn btn-primary" style="padding: 0.8rem 2.5rem; background: var(--accent-color); border-radius: 50px; font-weight: 800; border: none;">
+    ⬇️ Export PDF
+  </button>
+
+  <a href="{{ url_for('generate') }}" class="btn" style="padding: 0.8rem 2rem; border-radius: 50px; border: 1px solid var(--accent-color); color: var(--accent-color); background: transparent;">
+    ⚙ Regenerate
+  </a>
+</div>
+
+<script>
+function exportToPDF() {
+    const btn = document.getElementById('pdfBtn');
+    btn.innerHTML = '⏳ Generating...';
+    btn.disabled = true;
+
+    const element = document.getElementById('printableArea');
+    const oldTransform = element.style.transform;
+    const oldWidth = element.style.width;
+    const oldMaxW = element.style.maxWidth;
+    const oldMargin = element.style.margin;
+    
+    // Force exact desktop layout widths for perfect canvas capture
+    element.style.width = '1150px';
+    element.style.maxWidth = '1150px';
+    element.style.transform = 'none';
+    element.style.margin = '0';
+    
+    // Slight delay to ensure browser paints the new dimensions
+    setTimeout(() => {
+        html2canvas(element, { scale: 2, useCORS: true }).then(canvas => {
+            const imgData = canvas.toDataURL('image/jpeg', 0.98);
+            const { jsPDF } = window.jspdf;
+            
+            // A4 landscape setup
+            const pdf = new jsPDF('l', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            
+            // Leave exactly 5mm margin around the edges
+            const margin = 5;
+            const maxWidth = pdfWidth - (margin * 2);
+            const maxHeight = pdfHeight - (margin * 2);
+            
+            // Calculate best fit ratio
+            let imgWidth = maxWidth;
+            let imgHeight = (canvas.height * imgWidth) / canvas.width;
+            
+            // If the calculated height still spills over A4, shrink width to fit height instead
+            if (imgHeight > maxHeight) {
+                imgHeight = maxHeight;
+                imgWidth = (canvas.width * imgHeight) / canvas.height;
+            }
+            
+            // Center the image perfectly on the page
+            const x = (pdfWidth - imgWidth) / 2;
+            const y = (pdfHeight - imgHeight) / 2;
+            
+            pdf.addImage(imgData, 'JPEG', x, y, imgWidth, imgHeight);
+            pdf.save('Timetable_{{ class_section.branch.name if branch else "class" }}_{{ class_section.section }}.pdf');
+            
+            // Revert original styles
+            element.style.width = oldWidth;
+            element.style.maxWidth = oldMaxW;
+            element.style.transform = oldTransform;
+            element.style.margin = oldMargin;
+            
+            btn.innerHTML = '⬇️ Export PDF';
+            btn.disabled = false;
+        });
+    }, 150);
+}
+</script>
+{% endif %}
+
+{% endblock %}

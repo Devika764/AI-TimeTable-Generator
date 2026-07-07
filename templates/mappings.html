@@ -1,0 +1,218 @@
+{% extends 'base.html' %}
+{% block title %}Mapping Central{% endblock %}
+{% block content %}
+
+<div class="header-actions">
+  <h1 class="page-title">🔗 Mapping Central</h1>
+</div>
+
+<!-- TABS -->
+<div style="display:flex;gap:.5rem;margin-bottom:1.5rem;" id="tab-bar">
+  <button class="btn" id="tab-fs-btn" onclick="switchTab('fs')">👨‍🏫 Faculty–Subject Assignments</button>
+  <button class="btn btn-secondary" id="tab-pref-btn" onclick="switchTab('pref')">⏰ Faculty Preferences</button>
+</div>
+
+<!-- ─── TAB: FACULTY–SUBJECT ─── -->
+<div id="tab-fs">
+  <div style="display:grid;grid-template-columns:1fr 2fr;gap:1.5rem;align-items:start;">
+
+    <div class="card">
+      <div class="card-title">➕ Assign Subject to Faculty</div>
+      <form method="POST" action="{{ url_for('mappings') }}">
+        <input type="hidden" name="action" value="assign_subject">
+        <div class="form-group">
+          <label class="form-label">Faculty</label>
+          <select name="faculty_id" class="form-control" required>
+            <option value="">— Select Faculty —</option>
+            {% for f in faculties %}
+            <option value="{{ f.id }}">{{ f.name }} ({{ f.department.name if f.department else '—' }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Subject</label>
+          <select name="subject_id" class="form-control" required>
+            <option value="">— Select Subject —</option>
+            {% for s in subjects %}
+            <option value="{{ s.id }}">{{ s.code }} – {{ s.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn" style="width:100%;justify-content:center;">✅ Assign</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📋 Current Assignments <span class="badge badge-info" style="margin-left:.5rem;">{{ fs_mappings|length }}</span></div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>#</th><th>Faculty</th><th>Department</th><th>Subject</th><th>Classes</th><th style="text-align:right;">Action</th></tr>
+          </thead>
+          <tbody>
+            {% for fs in fs_mappings %}
+            <tr>
+              <td style="color:var(--text-muted);">{{ loop.index }}</td>
+              <td><strong>{{ fs.faculty.name if fs.faculty else '—' }}</strong></td>
+              <td><span class="badge badge-primary">{{ fs.faculty.department.name if fs.faculty and fs.faculty.department else '—' }}</span></td>
+              <td>
+                {% if fs.subject %}
+                  <code style="color:var(--secondary);font-size:.78rem;">{{ fs.subject.code }}</code>
+                  {{ fs.subject.name }}
+                {% else %}—{% endif %}
+              </td>
+              <td style="font-size:.8rem; color:var(--text-muted);">
+                {% if fs.faculty %}
+                  {% for cls in fs.faculty.assigned_classes %}
+                    <span class="badge badge-info" style="font-size:.7rem; margin-bottom:2px;">{{ cls }}</span>
+                  {% endfor %}
+                {% else %}—{% endif %}
+              </td>
+              <td style="text-align:right;">
+                <form method="POST" action="{{ url_for('delete_fs', id=fs.id) }}"
+                      onsubmit="return confirm('Remove this assignment?')" style="display:inline;">
+                  <button type="submit" class="btn btn-danger btn-sm">🗑</button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:2rem;">No assignments yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── TAB: PREFERENCES ─── -->
+<div id="tab-pref" style="display:none;">
+  <div style="display:grid;grid-template-columns:1fr 2fr;gap:1.5rem;align-items:start;">
+
+    <div class="card">
+      <div class="card-title">⏰ Add Preferred Slot</div>
+      <form method="POST" action="{{ url_for('mappings') }}">
+        <input type="hidden" name="action" value="assign_pref">
+        <div class="form-group">
+          <label class="form-label">Faculty</label>
+          <select id="pref_faculty_select" name="faculty_id" class="form-control" required>
+            <option value="">— Select Faculty —</option>
+            {% for f in faculties %}
+            <option value="{{ f.id }}">{{ f.name }} ({{ f.department.name if f.department else '—' }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Apply to Class (Optional)</label>
+          <select id="pref_class_select" name="class_section_id" class="form-control">
+            <option value="">— Use for All Classes —</option>
+            {% for cs in all_sections %}
+            <option value="{{ cs.id }}">{{ cs.branch.name }} Sem-{{ cs.semester }} ({{ cs.section }})</option>
+            {% endfor %}
+          </select>
+          <small style="color:var(--text-muted);font-size:.7rem;">Leave empty if preference applies to all sessions this faculty teaches.</small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Preferred Day</label>
+          <select name="day_id" class="form-control" required>
+            <option value="">— Select Day —</option>
+            {% for d in days %}
+            <option value="{{ d.id }}">{{ d.day_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Preferred Time Slot</label>
+          <select name="slot_id" class="form-control" required>
+            <option value="">— Select Slot —</option>
+            {% for s in slots %}
+            <option value="{{ s.id }}">{{ s.start_time }} – {{ s.end_time }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn" style="width:100%;justify-content:center;">✅ Add Preference</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📋 Preference Records <span class="badge badge-info" style="margin-left:.5rem;">{{ pref_mappings|length }}</span></div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>#</th><th>Faculty</th><th>Target Class</th><th>Day</th><th>Slot</th><th style="text-align:right;">Action</th></tr>
+          </thead>
+          <tbody>
+            {% for p in pref_mappings %}
+            <tr>
+              <td style="color:var(--text-muted);">{{ loop.index }}</td>
+              <td>
+                <strong>{{ p.faculty.name if p.faculty else '—' }}</strong>
+                <br>
+                <span class="badge badge-primary" style="font-size:.65rem;">{{ p.faculty.department.name if p.faculty and p.faculty.department else '—' }}</span>
+              </td>
+              <td>
+                {% if p.class_section %}
+                  <span class="badge badge-info">{{ p.class_section.branch.name }} S{{ p.class_section.semester }}{{ p.class_section.section }}</span>
+                {% else %}
+                  <span class="badge badge-secondary">All Classes</span>
+                {% endif %}
+              </td>
+              <td>{{ p.day.day_name if p.day else '—' }}</td>
+              <td><code style="color:var(--secondary);">{{ p.slot.start_time ~ '–' ~ p.slot.end_time if p.slot else '—' }}</code></td>
+              <td style="text-align:right;">
+                <form method="POST" action="{{ url_for('delete_pref', id=p.id) }}"
+                      onsubmit="return confirm('Remove this preference?')" style="display:inline;">
+                  <button type="submit" class="btn btn-danger btn-sm">🗑</button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:2rem;">No preferences recorded.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchTab(tab) {
+  document.getElementById('tab-fs').style.display   = tab === 'fs'   ? '' : 'none';
+  document.getElementById('tab-pref').style.display = tab === 'pref' ? '' : 'none';
+  document.getElementById('tab-fs-btn').className   = 'btn' + (tab === 'fs'   ? '' : ' btn-secondary');
+  document.getElementById('tab-pref-btn').className = 'btn' + (tab === 'pref' ? '' : ' btn-secondary');
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+  const facSelect = document.getElementById("pref_faculty_select");
+  const classSelect = document.getElementById("pref_class_select");
+  
+  if(facSelect && classSelect) {
+    facSelect.addEventListener('change', function() {
+      const facId = this.value;
+      // Clear options
+      classSelect.innerHTML = '<option value="">— Use for All Classes —</option>';
+      
+      if(!facId) {
+        return; // nothing to load
+      }
+      
+      fetch('/api/faculty/' + facId + '/assigned_sections')
+        .then(response => response.json())
+        .then(data => {
+          data.forEach(item => {
+            const opt = document.createElement("option");
+            opt.value = item.id;
+            opt.textContent = item.label;
+            classSelect.appendChild(opt);
+          });
+        })
+        .catch(err => console.error("Error fetching classes:", err));
+    });
+  }
+});
+</script>
+
+{% endblock %}

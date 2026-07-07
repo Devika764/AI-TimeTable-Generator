@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="AI Timetable - Secure Student Portal">
+  <title>Student Portal – MIC CollegeTech</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    .student-navbar { background: rgba(21, 24, 41, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); padding: 1.25rem 3rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 1000; }
+    .student-brand { font-family: 'Outfit', sans-serif; font-size: 1.6rem; font-weight: 800; text-decoration: none; background: linear-gradient(135deg, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .student-main { margin: 2rem auto; max-width: 1400px; padding: 0 1rem; width: 100%; }
+    
+    :root {
+        --tt-border: #cbd5e1;
+        --tt-header-color: #0f172a;
+        --tt-brand: #e11d48;
+        --tt-lab-bg: #f0f9ff;
+        --tt-lab-text: #0284c7;
+    }
+
+    #printableArea {
+        background: #ffffff;
+        color: #0f172a;
+        font-family: 'Inter', system-ui, sans-serif;
+        max-width: 1050px;
+        margin: 0 auto;
+        padding: 12px 20px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+        border-radius: 12px;
+        transform: rotateX(2deg);
+        transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    #printableAreaContainer { perspective: 1000px; }
+    #printableArea:hover { transform: rotateX(0deg); }
+
+    .tt-header { display:flex; align-items:center; border-bottom:2px solid var(--tt-header-color); padding-bottom:4px; margin-bottom:4px; text-align: left; }
+    .tt-college { flex:1; text-align:center; }
+    .tt-college h1 { font-family: 'Times New Roman', serif; font-size:1.25rem; font-weight:900; margin:0 0 2px 0; color: var(--tt-header-color); text-transform: uppercase; letter-spacing: 1px; }
+    .tt-college .sub { font-family: 'Inter', sans-serif; font-size:0.65rem; color:#475569; line-height:1.2; font-weight: 500;}
+    
+    .tt-info-bar-premium { display: flex; justify-content: space-between; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 10px; font-family: 'Inter', sans-serif; font-weight: 800; font-size: 0.8rem; margin-top: 4px; color: #0f172a; box-shadow: 0 1px 2px rgba(0,0,0,0.02); margin-bottom: 6px;}
+    .tt-info-bar-premium div { color: var(--tt-header-color); }
+    .tt-info-bar-premium span { color: #64748b; font-size: 0.65rem; text-transform: uppercase; display: block; margin-bottom: 2px; font-weight: 700; letter-spacing: 0.5px;}
+    
+    table.tt-main { width:100%; border-collapse: separate; border-spacing: 0; margin-bottom:6px; table-layout: fixed; border: 1.5px solid var(--tt-header-color); border-radius: 4px; overflow: hidden; box-shadow: 0 2px 4px -1px rgba(0,0,0,0.05); }
+    table.tt-main th, table.tt-main td { border-bottom: 1px solid var(--tt-border); border-right: 1px solid var(--tt-border); text-align:center; vertical-align:middle; overflow: hidden; }
+    table.tt-main th:last-child, table.tt-main td:last-child { border-right: none; }
+    table.tt-main tr:last-child td { border-bottom: none; }
+    
+    table.tt-main th { background:#f1f5f9; color: #334155; font-size:0.65rem; padding: 3px 2px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+    table.tt-main .day-col { background:#f8fafc; font-weight:800; width: 50px; font-size: 0.75rem; color: var(--tt-header-color); }
+    table.tt-main .cell { height: 38px; padding: 2px; transition: background 0.2s; }
+    table.tt-main .cell:hover { background: #f8fafc; }
+    table.tt-main .abbr { font-size: 0.8rem; font-weight: 800; color: #0f172a; display: block; margin-bottom: 1px; letter-spacing: 0.5px; line-height: 1; }
+    table.tt-main .fac { font-size: 0.6rem; font-weight: 700; color: #475569; display: inline-block; background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }
+    table.tt-main .lab-highlight { background: var(--tt-lab-bg) !important; position: relative; }
+    table.tt-main .lab-highlight .fac { background: #e0f2fe; color: var(--tt-lab-text); }
+    table.tt-main .lab-highlight::after { content: 'LAB'; position: absolute; top: 1px; right: 2px; font-size: 0.45rem; background: var(--tt-lab-text); color: #fff; padding: 1px 3px; border-radius: 3px; font-weight: 800; letter-spacing: 0.5px; }
+    
+    .tt-break-col { width: 25px; background: #fafafa; font-size: 0.7rem; font-weight: 900; text-align: center; color: #94a3b8; letter-spacing: 2px; }
+    
+    .tt-section-title { font-size: 0.8rem; font-weight: 900; color: var(--tt-header-color); text-transform: uppercase; letter-spacing: 1px; background: #f1f5f9; display: inline-block; padding: 3px 8px; border-radius: 4px; margin-bottom: 4px; border-left: 3px solid var(--tt-brand); }
+
+    table.staff-table { width:100%; border-collapse: separate; border-spacing: 0; margin-bottom: 6px; font-size: 0.7rem; border: 1px solid var(--tt-border); border-radius: 4px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+    table.staff-table th { background:var(--tt-header-color); color:#fff; padding:3px 6px; font-weight:700; text-align: left; letter-spacing: 0.5px; font-size: 0.65rem; text-transform: uppercase; }
+    table.staff-table td { border-bottom:1px solid #e2e8f0; padding:3px 6px; color: #1e293b; font-weight: 600; line-height: 1.1; }
+    table.staff-table tr:last-child td { border-bottom: none; }
+    table.staff-table tr:nth-child(even) td { background: #f8fafc; }
+    table.staff-table .subject-code { font-family: 'ui-monospace', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace; color: #64748b; font-size: 0.65rem; background: #f1f5f9; padding: 1px 4px; border-radius: 3px; border: 1px solid #e2e8f0; font-weight: 700; }
+
+    .tt-footer { display:flex; justify-content:space-between; margin-top:8px; padding: 0 10px; }
+    .tt-sig { text-align: center; width: 200px; border-top: 1.5px dashed #94a3b8; padding-top: 3px; font-weight: 800; font-size: 0.65rem; color: #475569; text-transform: uppercase; letter-spacing: 1px; }
+
+    @page { size: A4 landscape; margin: 6mm; }
+    @media print {
+        body { background: #fff; margin: 0; padding: 0; }
+        nav { display: none !important; }
+        .no-print { display: none !important; }
+        .student-main { margin: 0 !important; max-width: 100% !important; padding: 0 !important; width: 100% !important; }
+        #printableArea, #printableArea * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        #printableArea { 
+            max-width: 100%; border: none; box-shadow: none; margin: 0; padding: 0; 
+            zoom: 0.75 !important;
+            transform: scale(0.95); 
+            transform-origin: top left;
+            display: block;
+            page-break-inside: avoid !important;
+        }
+        #printableAreaContainer { margin: 0; padding: 0; width: 100%; height: auto; }
+        table.tt-main, table.staff-table, .tt-footer, .tt-header { page-break-inside: avoid !important; }
+        table.tt-main th { background: #f1f5f9 !important; color: #000 !important; }
+        table.staff-table th { background: #0f172a !important; color: #fff !important; }
+        .lab-highlight { background: #f0f9ff !important; }
+        
+        @page {
+            size: A4 landscape;
+            margin: 6mm;
+        }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="student-navbar no-print">
+  <a href="{{ url_for('student_portal') }}" class="student-brand">🎓 SECURE STUDENT PORTAL</a>
+  <a href="{{ url_for('login') }}" class="btn btn-outline" style="border-radius: 50px; font-size: 0.85rem; padding: 0.5rem 1.5rem; color: #fff; border: 1px solid rgba(255,255,255,0.2);">Admin Login</a>
+</nav>
+
+<div class="student-main">
+
+  <!-- FILTER CONTROLS -->
+  <div class="card no-print" style="margin-bottom:2rem;">
+    <div class="card-title">🔍 Fetch Class Timetable</div>
+    <form method="GET" action="{{ url_for('student_portal') }}" id="filterForm">
+      <input type="hidden" name="filter_type" value="section">
+      <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:flex-end;">
+        <div class="form-group" style="flex:1; min-width:200px; margin-bottom:0;">
+          <label class="form-label">Department</label>
+          <select id="s_dept" class="form-control" required>
+            <option value="">— Select Dept —</option>
+            {% for d in departments %}
+            <option value="{{ d.id }}" {% if dept and dept.id == d.id %}selected{% endif %}>{{ d.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group" style="flex:1; min-width:200px; margin-bottom:0;">
+          <label class="form-label">Branch/Program</label>
+          <select id="s_branch" class="form-control" required disabled>
+            <option value="">— Select Branch —</option>
+            {% if branch %}
+              <option value="{{ branch.id }}" selected>{{ branch.name }}</option>
+            {% endif %}
+          </select>
+        </div>
+        <div class="form-group" style="flex:1; min-width:150px; margin-bottom:0;">
+          <label class="form-label">Semester</label>
+          <select id="s_sem" class="form-control" required disabled>
+            <option value="">— Select Sem —</option>
+            {% if class_section %}
+              <option value="{{ class_section.semester }}" selected>Semester {{ class_section.semester }}</option>
+            {% endif %}
+          </select>
+        </div>
+        <div class="form-group" style="flex:1; min-width:150px; margin-bottom:0;">
+          <label class="form-label">Section</label>
+          <select id="s_sec" name="filter_id" class="form-control" required disabled>
+            <option value="">— Section —</option>
+            {% if class_section %}
+              <option value="{{ class_section.id }}" selected>Sec {{ class_section.section }}</option>
+            {% endif %}
+          </select>
+        </div>
+        <button type="submit" class="btn" style="height: 44px; padding: 0 2rem;">✅ Load Timetable</button>
+      </div>
+    </form>
+  </div>
+
+  {% if not class_section %}
+  <!-- ══════════════════════════════════════════
+       SECTION A: Department Assets (Faculty & Subjects)
+       ══════════════════════════════════════════ -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(400px, 1fr));gap:1.5rem;margin-bottom:1.5rem;" class="no-print">
+    <!-- FACULTY BY DEPT -->
+    <div class="card">
+      <div class="card-title">👨‍🏫 Faculty by Department</div>
+      <p style="color:var(--text-muted);font-size:.85rem;margin-bottom:1rem;">Select a department to view all working faculty members.</p>
+      <div class="form-group">
+        <select id="flt_dept_fac" class="form-control" style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1);">
+          <option value="">— Select Department —</option>
+          {% for d in departments %}
+          <option value="{{ d.id }}">{{ d.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      
+      <div class="table-wrapper" style="margin-top:1rem; display:none; max-height:400px; overflow-y:auto;" id="fac_container">
+        <div id="fac_meta" style="margin-bottom:.75rem; font-size:.85rem; color:var(--text-muted);"></div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:30px;">#</th>
+              <th>Faculty Name</th>
+              <th>Subjects Assigned</th>
+              <th style="text-align:center;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="fac_tbody"></tbody>
+        </table>
+      </div>
+      <div id="fac_empty" style="display:none; margin-top:1rem; padding:1.5rem; text-align:center; color:var(--text-muted); border:1px dashed var(--border); border-radius:8px;">
+        ⚠️ No faculty found for this department.
+      </div>
+    </div>
+
+    <!-- SUBJECTS BY DEPT -->
+    <div class="card">
+      <div class="card-title">📚 Subjects by Department</div>
+      <p style="color:var(--text-muted);font-size:.85rem;margin-bottom:1rem;">Select a department to view all offered subjects.</p>
+      <div class="form-group">
+        <select id="sub_dept_list" class="form-control" style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1);">
+          <option value="">— Select Department —</option>
+          {% for d in departments %}
+          <option value="{{ d.id }}">{{ d.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="table-wrapper" style="margin-top:1rem; display:none; max-height:400px; overflow-y:auto;" id="sub_container">
+        <div id="sub_meta" style="margin-bottom:.75rem; font-size:.85rem; color:var(--text-muted);"></div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:40px;">#</th>
+              <th style="width:80px;">Code</th>
+              <th>Subject Name</th>
+            </tr>
+          </thead>
+          <tbody id="sub_tbody"></tbody>
+        </table>
+      </div>
+      <div id="sub_empty" style="display:none; margin-top:1rem; padding:1.5rem; text-align:center; color:var(--text-muted); border:1px dashed var(--border); border-radius:8px;">
+        ⚠️ No subjects found for this department.
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION B: Individual Faculty Timetable
+       ══════════════════════════════════════════ -->
+  <div class="card no-print" style="margin-top:1.5rem;" id="fac_tt_section">
+    <div class="card-title" id="fac_tt_title">📅 Search Faculty Timetable</div>
+    <p style="color:var(--text-muted);font-size:.85rem; margin-bottom:1rem;">
+      Search a faculty by <strong>name</strong> or <strong>ID</strong> to see their full weekly schedule.
+    </p>
+
+    <div style="display:flex; gap:1rem; align-items:flex-start; flex-wrap:wrap; margin-bottom:1.5rem;">
+      <div class="form-group" style="flex:1; min-width:280px; margin-bottom:0; position:relative;">
+        <label class="form-label" style="font-size:.75rem; color:var(--accent-color);">🔎 Search Name or ID</label>
+        <input type="text" id="fac_search_input" class="form-control" placeholder="e.g. Dr. Singh or 12"
+               autocomplete="off" style="padding-right:2.5rem; background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1);">
+        <div id="fac_search_results"
+             style="display:none; position:absolute; top:100%; left:0; right:0; z-index:999;
+                    background:#1a1a1a; border:1px solid #333; border-radius:8px;
+                    box-shadow:0 8px 24px rgba(0,0,0,.6); max-height:260px; overflow-y:auto; margin-top:4px;">
+        </div>
+      </div>
+      <div class="form-group" style="flex:1; min-width:260px; margin-bottom:0;">
+        <label class="form-label" style="font-size:.75rem; color:var(--accent-color);">Or Select Faculty</label>
+        <select id="direct_fac_sel" class="form-control" style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1);">
+          <option value="">— Choose Faculty —</option>
+          {% for f in faculty_list %}
+          <option value="{{ f.id }}">{{ f.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div id="fac_tt_wrapper" style="display:none; overflow-x:auto;">
+      <table id="fac_tt_table" style="width:100%; border-collapse:collapse; font-size:.85rem; border:2px solid #000; background:#fff; color:#000;">
+        <thead id="fac_tt_head" style="background:#000; color:#fff;"></thead>
+        <tbody id="fac_tt_body"></tbody>
+      </table>
+    </div>
+    <div id="fac_tt_empty" style="display:none; padding:1.5rem; text-align:center; color:var(--text-muted); border:1px dashed var(--border); border-radius:8px;">
+      ⚠️ This faculty member has no scheduled classes.
+    </div>
+  </div>
+  {% else %}
+  
+  <!-- TIMETABLE VIEW -->
+  <div id="printableAreaContainer" style="display:flex;justify-content:center;">
+  <div id="printableArea" style="background:#fff; padding:20px; border:1px solid #ddd; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width:100%; max-width: 1100px; color: #000;">
+
+  <!-- Header -->
+  <div class="tt-header">
+    <div class="tt-college">
+      <div style="font-size: 0.85rem; font-weight: 700; color: #475569; margin-bottom: 2px;">DVR & Dr. HS</div>
+      <h1>MIC College of Technology</h1>
+      <div class="sub">
+        <strong>AUTONOMOUS</strong><br>
+        Approved by AICTE & Permanently Affiliated to JNTUK, Kakinada<br>
+        Kanchikacherla - 521180, NTR Dist, A.P, India.
+      </div>
+    </div>
+  </div>
+  
+  <div class="tt-info-bar-premium">
+    <div><span>Class / Branch</span>B.Tech - {{ class_section.sem_roman }} SEM - {{ branch.name }}</div>
+    <div><span>Section</span>{{ class_section.section }}</div>
+    <div><span>Room No.</span>{{ room_display }}</div>
+    <div><span>W.E.F</span>{{ today }}</div>
+  </div>
+
+  <table class="tt-main">
+    <thead>
+      <tr>
+        <th rowspan="2" style="width:60px;">DAY</th>
+        {% for s in slots %}
+        <th>{{ loop.index }}</th>
+        {% endfor %}
+        <th>REMEDIAL</th>
+      </tr>
+      <tr>
+        {% for s in slots %}
+        <th>{{ s.start_time }}<br>{{ s.end_time }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for day in days %}
+      <tr>
+        <td class="day-col">{{ day.day_name[:3].upper() }}</td>
+        {% for si in range(8) %}
+          {% set slot = slots[si] %}
+          {% set cell = matrix.get(day.id, {}).get(slot.id, {}) %}
+          
+          {% if si == 2 %}
+            <td class="tt-break-col">{{ break_ltr.get(day.day_name, '') }}</td>
+          {% endif %}
+          {% if si == 4 %}
+            <td class="tt-break-col">{{ lunch_ltr.get(day.day_name, '') }}</td>
+          {% endif %}
+
+          <td class="cell {% if cell.is_lab %}lab-highlight{% endif %}">
+            {% if cell.abbr %}
+              <span class="abbr">{{ cell.abbr }}</span>
+              <span class="fac">{{ cell.faculty }}</span>
+            {% endif %}
+          </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Staff Mapping -->
+  <div class="tt-section-title">
+    Subjects & Faculty Details
+  </div>
+  <table class="staff-table">
+    <thead>
+      <tr>
+        <th style="width: 60px; text-align: center;">S.NO</th>
+        <th style="width: 140px;">CODE</th>
+        <th>SUBJECT NAME</th>
+        <th style="width: 100px; text-align: center;">ABBR</th>
+        <th>NAME OF THE FACULTY</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in subject_faculty %}
+      <tr>
+        <td style="text-align: center; color: #64748b; font-weight: 700;">{{ loop.index }}</td>
+        <td><span class="subject-code">{{ row.subject.code }}</span></td>
+        <td>{{ row.subject.name }}</td>
+        <td style="text-align: center; font-weight: 800; color: var(--tt-header-color);">{{ row.abbr }}</td>
+        <td>{{ row.faculty }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Footer signatures -->
+  <div class="tt-footer">
+    <div class="tt-sig">TIME TABLE IN-CHARGE</div>
+    <div class="tt-sig" style="width: 250px;">HEAD OF THE DEPARTMENT</div>
+    <div class="tt-sig">PRINCIPAL</div>
+  </div>
+
+  </div><!-- end printableArea -->
+  </div><!-- end printableAreaContainer -->
+
+  <div class="no-print" style="text-align:center; margin-top:2.5rem; display: flex; justify-content: center; gap: 1rem;">
+    <button onclick="window.print()" class="btn btn-primary" style="padding: 0.8rem 2.5rem; background: var(--secondary); border-radius: 50px; color: #000; font-weight: 800; border: none;">
+      🖨 Print
+    </button>
+    <button onclick="exportToPDF()" id="pdfBtn" class="btn btn-primary" style="padding: 0.8rem 2.5rem; background: var(--accent-color); border-radius: 50px; font-weight: 800; border: none;">
+      ⬇️ Export PDF
+    </button>
+  </div>
+  
+  <script>
+  function exportToPDF() {
+      const btn = document.getElementById('pdfBtn');
+      btn.innerHTML = '⏳ Generating...';
+      btn.disabled = true;
+  
+      const element = document.getElementById('printableArea');
+      const oldTransform = element.style.transform;
+      const oldWidth = element.style.width;
+      const oldMaxW = element.style.maxWidth;
+      const oldMargin = element.style.margin;
+      
+      // Force exact desktop layout widths for perfect canvas capture
+      element.style.width = '1150px';
+      element.style.maxWidth = '1150px';
+      element.style.transform = 'none';
+      element.style.margin = '0';
+      
+      // Slight delay to ensure browser paints the new dimensions
+      setTimeout(() => {
+          html2canvas(element, { scale: 2, useCORS: true }).then(canvas => {
+              const imgData = canvas.toDataURL('image/jpeg', 0.98);
+              const { jsPDF } = window.jspdf;
+              
+              // A4 landscape setup
+              const pdf = new jsPDF('l', 'mm', 'a4');
+              const pdfWidth = pdf.internal.pageSize.getWidth();
+              const pdfHeight = pdf.internal.pageSize.getHeight();
+              
+              // Leave exactly 5mm margin around the edges
+              const margin = 5;
+              const maxWidth = pdfWidth - (margin * 2);
+              const maxHeight = pdfHeight - (margin * 2);
+              
+              // Calculate best fit ratio
+              let imgWidth = maxWidth;
+              let imgHeight = (canvas.height * imgWidth) / canvas.width;
+              
+              // If the calculated height still spills over A4, shrink width to fit height instead
+              if (imgHeight > maxHeight) {
+                  imgHeight = maxHeight;
+                  imgWidth = (canvas.width * imgHeight) / canvas.height;
+              }
+              
+              // Center the image perfectly on the page
+              const x = (pdfWidth - imgWidth) / 2;
+              const y = (pdfHeight - imgHeight) / 2;
+              
+              pdf.addImage(imgData, 'JPEG', x, y, imgWidth, imgHeight);
+              pdf.save('Timetable_{{ class_section.branch.name if branch else "class" }}_{{ class_section.section }}.pdf');
+              
+              // Revert original styles
+              element.style.width = oldWidth;
+              element.style.maxWidth = oldMaxW;
+              element.style.transform = oldTransform;
+              element.style.margin = oldMargin;
+              
+              btn.innerHTML = '⬇️ Export PDF';
+              btn.disabled = false;
+          });
+      }, 150);
+  }
+  </script>
+  {% endif %}
+
+</div>
+
+<!-- Dropdown Scripts -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Timetable Filter Script
+    const deptSel = document.getElementById('s_dept');
+    const branchSel = document.getElementById('s_branch');
+    const semSel = document.getElementById('s_sem');
+    const secSel = document.getElementById('s_sec');
+
+    if(deptSel) {
+        deptSel.addEventListener('change', function() {
+            let did = this.value;
+            branchSel.innerHTML = '<option value="">— Select Branch —</option>';
+            semSel.innerHTML = '<option value="">— Select Sem —</option>';
+            secSel.innerHTML = '<option value="">— Section —</option>';
+            branchSel.disabled = !did;
+            semSel.disabled = true;
+            secSel.disabled = true;
+
+            if(did) {
+                fetch('/api/branches?dept_id='+did)
+                  .then(r => r.json())
+                  .then(data => {
+                      data.forEach(b => {
+                          branchSel.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+                      });
+                  });
+            }
+        });
+
+        branchSel.addEventListener('change', function() {
+            let bid = this.value;
+            semSel.innerHTML = '<option value="">— Select Sem —</option>';
+            secSel.innerHTML = '<option value="">— Section —</option>';
+            semSel.disabled = !bid;
+            secSel.disabled = true;
+
+            if(bid) {
+                fetch('/api/semesters?branch_id='+bid)
+                  .then(r => r.json())
+                  .then(data => {
+                      data.forEach(s => {
+                          semSel.innerHTML += `<option value="${s.semester}">${s.label}</option>`;
+                      });
+                  });
+            }
+        });
+
+        semSel.addEventListener('change', function() {
+            let bid = branchSel.value;
+            let sem = this.value;
+            secSel.innerHTML = '<option value="">— Section —</option>';
+            secSel.disabled = !(bid && sem);
+
+            if(bid && sem) {
+                fetch(`/api/sections?branch_id=${bid}&semester=${sem}`)
+                  .then(r => r.json())
+                  .then(data => {
+                      data.forEach(s => {
+                          secSel.innerHTML += `<option value="${s.id}">Sec ${s.section}</option>`;
+                      });
+                  });
+            }
+        });
+    }
+
+    /* ── SECTION A: Split fetchers for Faculty and Subjects ── */
+    const fDeptSelFac = document.getElementById('flt_dept_fac');
+    const fContainer  = document.getElementById('fac_container');
+    const fEmptyMsg   = document.getElementById('fac_empty');
+    const fTbody      = document.getElementById('fac_tbody');
+    const fMeta       = document.getElementById('fac_meta');
+
+    if (fDeptSelFac) {
+      fDeptSelFac.addEventListener('change', function () {
+        if (!this.value) {
+            fContainer.style.display = 'none';
+            fEmptyMsg.style.display = 'none';
+            return;
+        }
+
+        const dId = this.value;
+        const dN = this.options[this.selectedIndex].text;
+
+        fetch(`/api/faculty_by_dept?dept_id=${dId}`)
+          .then(r => r.json())
+          .then(data => {
+            fTbody.innerHTML = '';
+            fContainer.style.display = 'none';
+            fEmptyMsg.style.display = 'none';
+            if (!data || data.length === 0) { 
+               fEmptyMsg.innerHTML = `⚠️ No faculty found in ${dN}.`;
+               fEmptyMsg.style.display = 'block'; 
+            } else {
+              fMeta.innerHTML = `<strong style="color:var(--secondary)">${data.length} faculty member(s)</strong> in <span style="color:var(--primary)">${dN}</span>`;
+              data.forEach((f, i) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                  <td style="color:var(--text-muted);">${i+1}</td>
+                  <td><strong style="color:#fff;">${f.name}</strong></td>
+                  <td style="font-size:.8rem; color:#aaa;">${f.subjects || '—'}</td>
+                  <td style="text-align:center;">
+                    <button class="btn btn-sm" style="padding:.3rem .8rem; font-size:.78rem;" 
+                            onclick="loadFacTimetable(${f.id}, '${f.name.replace(/'/g,"\\'")}')">
+                      📅 View Schedule
+                    </button>
+                  </td>`;
+                fTbody.appendChild(tr);
+              });
+              fContainer.style.display = 'block';
+            }
+          });
+      });
+    }
+
+    const sDeptSelList = document.getElementById('sub_dept_list');
+    const sContainer   = document.getElementById('sub_container');
+    const sEmptyMsg    = document.getElementById('sub_empty');
+    const sTbody       = document.getElementById('sub_tbody');
+    const sMeta        = document.getElementById('sub_meta');
+
+    if (sDeptSelList) {
+      sDeptSelList.addEventListener('change', function () {
+        if (!this.value) {
+            sContainer.style.display = 'none';
+            sEmptyMsg.style.display = 'none';
+            return;
+        }
+
+        const dId = this.value;
+        const dN = this.options[this.selectedIndex].text;
+
+        fetch(`/api/dept_subjects?dept_id=${dId}`)
+          .then(r => r.json())
+          .then(data => {
+            sTbody.innerHTML = '';
+            sContainer.style.display = 'none';
+            sEmptyMsg.style.display = 'none';
+            if (!data || data.length === 0) { 
+               sEmptyMsg.innerHTML = `⚠️ No subjects found in ${dN}.`;
+               sEmptyMsg.style.display = 'block'; 
+            } else {
+              sMeta.innerHTML = `<strong style="color:var(--secondary)">${data.length} subject(s)</strong> in <span style="color:var(--primary)">${dN}</span>`;
+              data.forEach((s, i) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                  <td style="color:var(--text-muted);">${i+1}</td>
+                  <td><span class="badge badge-primary">${s.code || '—'}</span></td>
+                  <td><strong style="color:#fff;">${s.name}</strong></td>
+                `;
+                sTbody.appendChild(tr);
+              });
+              sContainer.style.display = 'block';
+            }
+          });
+      });
+    }
+
+    /* ── SECTION B: Faculty Search and Timetable ── */
+    const searchInput   = document.getElementById('fac_search_input');
+    const searchResults = document.getElementById('fac_search_results');
+    const directSel     = document.getElementById('direct_fac_sel');
+    let searchTimer     = null;
+
+    if(searchInput) {
+      searchInput.addEventListener('input', function () {
+        clearTimeout(searchTimer);
+        const q = this.value.trim();
+        if (q.length < 1) { searchResults.style.display = 'none'; return; }
+        searchTimer = setTimeout(() => {
+          fetch('/api/search_faculty?q=' + encodeURIComponent(q))
+            .then(r => r.json())
+            .then(data => {
+              searchResults.innerHTML = '';
+              if (!data || data.length === 0) {
+                 searchResults.innerHTML = `<div style="padding:12px 16px; color:#888; font-size:.85rem;">No results found</div>`;
+              } else {
+                data.forEach(f => {
+                  const div = document.createElement('div');
+                  div.style.cssText = 'padding:10px 16px; cursor:pointer; border-bottom:1px solid #333; transition:background .1s;';
+                  div.innerHTML = `
+                    <div style="font-weight:700; color:#fff;">${f.name}</div>
+                    <div style="font-size:.72rem; color:#aaa;">ID: ${f.id} • ${f.department}</div>`;
+                  div.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    searchInput.value = f.name;
+                    searchResults.style.display = 'none';
+                    loadFacTimetable(f.id, f.name);
+                  });
+                  div.addEventListener('mouseenter', () => div.style.background = 'rgba(255,255,255,.05)');
+                  div.addEventListener('mouseleave', () => div.style.background = 'transparent');
+                  searchResults.appendChild(div);
+                });
+              }
+              searchResults.style.display = 'block';
+            });
+        }, 250);
+      });
+
+      searchInput.addEventListener('blur', () => { setTimeout(()=> { searchResults.style.display = 'none'; }, 200); });
+    }
+
+    if(directSel) {
+      directSel.addEventListener('change', function() {
+        if(this.value) loadFacTimetable(this.value, this.options[this.selectedIndex].text);
+      });
+    }
+});
+
+function loadFacTimetable(facId, facName) {
+  const titleEl = document.getElementById('fac_tt_title');
+  const wrapper = document.getElementById('fac_tt_wrapper');
+  const emptyEl = document.getElementById('fac_tt_empty');
+  const thead   = document.getElementById('fac_tt_head');
+  const tbody   = document.getElementById('fac_tt_body');
+
+  titleEl.textContent = '⏳ Loading: ' + facName + '...';
+  wrapper.style.display = 'none';
+  emptyEl.style.display = 'none';
+
+  // Sync select dropdown if it exists
+  const dsel = document.getElementById('direct_fac_sel');
+  if(dsel) { for(let o of dsel.options){ if(String(o.value)===String(facId)){o.selected=true; break;} } }
+  
+  // Scroll to section
+  document.getElementById('fac_tt_section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  fetch('/api/faculty_timetable/' + facId)
+    .then(r => r.json())
+    .then(data => {
+      titleEl.innerHTML = '📅 Timetable: ' + facName + ' <span class="badge" style="background:var(--secondary);color:#000;margin-left:1rem;font-size:0.8rem;padding:0.2rem 0.6rem;border-radius:4px;font-weight:700;">Workload: ' + data.total_workload + ' hrs/wk</span>';
+      if (!data.days || data.days.length === 0 || !data.slots || data.slots.length === 0) {
+        emptyEl.style.display = 'block'; return;
+      }
+
+      // Check for any actual data
+      const hasData = data.days.some(day => data.slots.some(s => data.matrix[day] && data.matrix[day][String(s.id)]));
+      if(!hasData) { emptyEl.style.display = 'block'; return; }
+
+      let hRow = '<tr><th style="padding:10px; border:1px solid #000; background:#000; color:#fff;">DAY</th>';
+      data.slots.forEach(s => {
+        hRow += `<th style="padding:8px; border:1px solid #000; background:#000; color:#fff; font-size:.75rem; text-align:center;">${s.start}<br>${s.end}</th>`;
+      });
+      hRow += '</tr>';
+      thead.innerHTML = hRow;
+
+      let bodyHtml = '';
+      data.days.forEach(day => {
+        bodyHtml += `<tr><td style="font-weight:900; padding:10px; border:1px solid #000; background:#eee; color:#000;">${day.substring(0,3).toUpperCase()}</td>`;
+        data.slots.forEach(s => {
+          const cell = (data.matrix[day] || {})[String(s.id)];
+          if (cell) {
+            const bg = cell.is_lab ? '#fff5d7' : '#fff';
+            bodyHtml += `<td style="padding:10px 5px; text-align:center; border:1px solid #000; background:${bg};">
+              <span style="font-weight:900; color:#000; font-size:.9rem; display:block;">${cell.subject}</span>
+              <span style="font-size:.7rem; color:#444; font-weight:700; display:block; margin-top:2px;">${cell.class}</span>
+            </td>`;
+          } else {
+            bodyHtml += `<td style="padding:8px; border:1px solid #000; color:#ccc; text-align:center; background:#fff;">—</td>`;
+          }
+        });
+        bodyHtml += '</tr>';
+      });
+      tbody.innerHTML = bodyHtml;
+      wrapper.style.display = 'block';
+    })
+    .catch(() => {
+       titleEl.textContent = '📅 ERROR LOADING: ' + facName;
+       emptyEl.style.display = 'block';
+    });
+}
+</script>
+</body>
+</html>

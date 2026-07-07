@@ -1,0 +1,267 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+
+<div class="header-actions">
+  <h1 class="page-title">Dashboard Overview</h1>
+  <div style="color:var(--text-muted);font-size:.85rem;">
+    🗓️ AI-Based Automatic Timetable Scheduling System
+  </div>
+</div>
+
+<!-- STAT CARDS -->
+<div class="grid">
+  <div class="card stat-card">
+    <span class="stat-icon">🎓</span>
+    <div class="stat-number">{{ stats.courses }}</div>
+    <div class="stat-label">Courses</div>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">🏛️</span>
+    <div class="stat-number">{{ stats.departments }}</div>
+    <div class="stat-label">Departments</div>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">👨‍🏫</span>
+    <div class="stat-number">{{ stats.faculty }}</div>
+    <div class="stat-label">Faculty Members</div>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">📚</span>
+    <div class="stat-number">{{ stats.subjects }}</div>
+    <div class="stat-label">Subjects</div>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">🏫</span>
+    <div class="stat-number">{{ stats.sections }}</div>
+    <div class="stat-label">Sections</div>
+  </div>
+</div>
+
+<!-- INFO SECTION -->
+<div class="card mt-4" style="background:linear-gradient(135deg,rgba(108,99,255,.12),rgba(0,210,255,.07));border-color:rgba(108,99,255,.3);">
+  <div class="card-title">🤖 About the AI Engine</div>
+  <p style="color:var(--text-muted);font-size:.9rem;line-height:1.8;">
+    This system uses a <strong style="color:var(--text);">Genetic Algorithm</strong> to auto-generate conflict-free academic timetables.<br>
+    Constraints like faculty availability, lab allocation, and mandatory subject frequency are all respected automatically.
+  </p>
+  <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.25rem;">
+    <a href="{{ url_for('generate') }}" class="btn">🤖 Generate New Timetable</a>
+    <a href="{{ url_for('view_timetable') }}" class="btn btn-secondary">📋 View Timetables</a>
+  </div>
+</div>
+
+<!-- COURSE MANAGEMENT (NEW) -->
+<div style="display:grid;grid-template-columns:1fr 2fr;gap:1.5rem;align-items:start;margin-top:2rem;">
+  <div class="card">
+    <div class="card-title">➕ Add Course</div>
+    <form method="POST" action="{{ url_for('dashboard') }}">
+      <input type="hidden" name="action" value="add_course">
+      <div class="form-group">
+        <label class="form-label">Course Name</label>
+        <input type="text" name="course_name" class="form-control" placeholder="e.g. B.Tech, M.Tech..." required>
+      </div>
+      <button type="submit" class="btn" style="width:100%;justify-content:center;">✅ Add Course</button>
+    </form>
+  </div>
+  <div class="card">
+    <div class="card-title">📋 Existing Courses</div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Course Name</th>
+            <th style="text-align:right;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in courses %}
+          <tr>
+            <td style="color:var(--text-muted);">{{ loop.index }}</td>
+            <td><strong>{{ c.name }}</strong></td>
+            <td style="text-align:right;">
+              <form method="POST" action="{{ url_for('delete_course', id=c.id) }}" style="display:inline;" onsubmit="return confirm('Delete this course?');">
+                <button type="submit" class="btn" style="background:var(--danger, #dc3545);padding:0.3rem 0.6rem;font-size:0.8rem;">🗑️ Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:2rem;">No courses defined yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- QUICK LINKS -->
+<div class="card" style="margin-top: 2rem;">
+  <div class="card-title">⚡ Quick Links</div>
+  <div class="quick-actions">
+    <a href="{{ url_for('departments') }}" class="btn btn-secondary">🏛️ Departments</a>
+    <a href="{{ url_for('subjects') }}" class="btn btn-secondary">📚 Subjects</a>
+    <a href="{{ url_for('faculty') }}" class="btn btn-secondary">👨‍🏫 Faculty</a>
+    <a href="{{ url_for('classrooms') }}" class="btn btn-secondary">🏫 Classrooms</a>
+    <a href="{{ url_for('timeslots') }}" class="btn btn-secondary">🕒 Time Slots</a>
+    <a href="{{ url_for('mappings') }}" class="btn btn-secondary">🔗 Mapping Central</a>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     FETCH BY DEPARTMENT DIRECTORY
+     ══════════════════════════════════════════ -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(400px, 1fr));gap:1.5rem;margin-top:2rem;">
+  
+  <!-- FACULTY BY DEPT -->
+  <div class="card">
+    <div class="card-title">👨‍🏫 Faculty by Department</div>
+    <p style="color:var(--text-muted);font-size:.85rem;margin-bottom:1rem;">Select a department to fetch all working faculty members.</p>
+    <div class="form-group">
+      <select id="flt_dept_fac" class="form-control" style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1);">
+        <option value="">— Select Department —</option>
+        {% for d in departments %}
+        <option value="{{ d.id }}">{{ d.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    
+    <div class="table-wrapper" style="margin-top:1rem; display:none; max-height:400px; overflow-y:auto;" id="fac_container">
+      <div id="fac_meta" style="margin-bottom:.75rem; font-size:.85rem; color:var(--text-muted);"></div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:30px;">#</th>
+            <th>Faculty Name</th>
+            <th>Subjects Assigned</th>
+          </tr>
+        </thead>
+        <tbody id="fac_tbody"></tbody>
+      </table>
+    </div>
+    <div id="fac_empty" style="display:none; margin-top:1rem; padding:1.5rem; text-align:center; color:var(--text-muted); border:1px dashed var(--border); border-radius:8px;">
+      ⚠️ No faculty found for this department.
+    </div>
+  </div>
+
+  <!-- SUBJECTS BY DEPT -->
+  <div class="card">
+    <div class="card-title">📚 Subjects by Department</div>
+    <p style="color:var(--text-muted);font-size:.85rem;margin-bottom:1rem;">Select a department to fetch all offered subjects.</p>
+    <div class="form-group">
+      <select id="sub_dept_list" class="form-control" style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1);">
+        <option value="">— Select Department —</option>
+        {% for d in departments %}
+        <option value="{{ d.id }}">{{ d.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="table-wrapper" style="margin-top:1rem; display:none; max-height:400px; overflow-y:auto;" id="sub_container">
+      <div id="sub_meta" style="margin-bottom:.75rem; font-size:.85rem; color:var(--text-muted);"></div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:40px;">#</th>
+            <th style="width:80px;">Code</th>
+            <th>Subject Name</th>
+          </tr>
+        </thead>
+        <tbody id="sub_tbody"></tbody>
+      </table>
+    </div>
+    <div id="sub_empty" style="display:none; margin-top:1rem; padding:1.5rem; text-align:center; color:var(--text-muted); border:1px dashed var(--border); border-radius:8px;">
+      ⚠️ No subjects found for this department.
+    </div>
+  </div>
+
+</div>
+
+<script>
+    const fDeptSelFac = document.getElementById('flt_dept_fac');
+    const fContainer  = document.getElementById('fac_container');
+    const fEmptyMsg   = document.getElementById('fac_empty');
+    const fTbody      = document.getElementById('fac_tbody');
+    const fMeta       = document.getElementById('fac_meta');
+
+    if (fDeptSelFac) {
+      fDeptSelFac.addEventListener('change', function () {
+        if (!this.value) {
+            fContainer.style.display = 'none';
+            fEmptyMsg.style.display = 'none';
+            return;
+        }
+
+        const dId = this.value;
+        const dN = this.options[this.selectedIndex].text;
+
+        fetch(`/api/faculty_by_dept?dept_id=${dId}`)
+          .then(r => r.json())
+          .then(data => {
+            fTbody.innerHTML = '';
+            fContainer.style.display = 'none';
+            fEmptyMsg.style.display = 'none';
+            if (!data || data.length === 0) { 
+               fEmptyMsg.innerHTML = `⚠️ No faculty found in ${dN}.`;
+               fEmptyMsg.style.display = 'block'; 
+            } else {
+              fMeta.innerHTML = `<strong style="color:var(--secondary)">${data.length} faculty member(s)</strong> in <span style="color:var(--primary)">${dN}</span>`;
+              data.forEach((f, i) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                  <td style="color:var(--text-muted);">${i+1}</td>
+                  <td><strong style="color:#fff;">${f.name}</strong></td>
+                  <td style="font-size:.8rem; color:#aaa;">${f.subjects || '—'}</td>`;
+                fTbody.appendChild(tr);
+              });
+              fContainer.style.display = 'block';
+            }
+          });
+      });
+    }
+
+    const sDeptSelList = document.getElementById('sub_dept_list');
+    const sContainer   = document.getElementById('sub_container');
+    const sEmptyMsg    = document.getElementById('sub_empty');
+    const sTbody       = document.getElementById('sub_tbody');
+    const sMeta        = document.getElementById('sub_meta');
+
+    if (sDeptSelList) {
+      sDeptSelList.addEventListener('change', function () {
+        if (!this.value) {
+            sContainer.style.display = 'none';
+            sEmptyMsg.style.display = 'none';
+            return;
+        }
+
+        const dId = this.value;
+        const dN = this.options[this.selectedIndex].text;
+
+        fetch(`/api/dept_subjects?dept_id=${dId}`)
+          .then(r => r.json())
+          .then(data => {
+            sTbody.innerHTML = '';
+            sContainer.style.display = 'none';
+            sEmptyMsg.style.display = 'none';
+            if (!data || data.length === 0) { 
+               sEmptyMsg.innerHTML = `⚠️ No subjects found in ${dN}.`;
+               sEmptyMsg.style.display = 'block'; 
+            } else {
+              sMeta.innerHTML = `<strong style="color:var(--secondary)">${data.length} subject(s)</strong> in <span style="color:var(--primary)">${dN}</span>`;
+              data.forEach((s, i) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                  <td style="color:var(--text-muted);">${i+1}</td>
+                  <td><span class="badge badge-primary">${s.code || '—'}</span></td>
+                  <td><strong style="color:#fff;">${s.name}</strong></td>
+                `;
+                sTbody.appendChild(tr);
+              });
+              sContainer.style.display = 'block';
+            }
+          });
+      });
+    }
+</script>
+
+{% endblock %}

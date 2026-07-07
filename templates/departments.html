@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}Departments{% endblock %}
+{% block content %}
+
+<div class="header-actions">
+  <h1 class="page-title">🏛️ Departments</h1>
+  <span class="badge badge-info">{{ depts|length }} total</span>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 2fr;gap:1.5rem;align-items:start;">
+
+  <!-- ADD FORM -->
+  <div class="card">
+    <div class="card-title">➕ Add Department</div>
+    <form method="POST" action="{{ url_for('departments') }}">
+      <div class="form-group">
+        <label for="dept_name" class="form-label">Department Name</label>
+        <input type="text" id="dept_name" name="name" class="form-control"
+               placeholder="e.g. AI, CSE, ECE…" required>
+      </div>
+      <button type="submit" class="btn" style="width:100%;justify-content:center;">✅ Add Department</button>
+    </form>
+  </div>
+
+  <!-- LIST -->
+  <div class="card">
+    <div class="card-title">📋 Existing Departments</div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th style="text-align:right;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in depts %}
+          <tr>
+            <td style="color:var(--text-muted);">{{ loop.index }}</td>
+            <td><strong>{{ d.name }}</strong></td>
+            <td style="text-align:right;">
+              <form method="POST" action="{{ url_for('delete_department', id=d.id) }}"
+                    onsubmit="return confirm('Delete {{ d.name }}?')" style="display:inline;">
+                <button type="submit" class="btn btn-danger btn-sm">🗑 Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:2rem;">No departments yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

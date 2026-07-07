@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% block title %}Time Slots{% endblock %}
+{% block content %}
+
+<div class="header-actions">
+  <h1 class="page-title">🕒 Time Slots</h1>
+  <span class="badge badge-info">{{ timeslots|length }} slots configured</span>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 2fr;gap:1.5rem;align-items:start;">
+
+  <div class="card">
+    <div class="card-title">➕ Add Time Slot</div>
+    <form method="POST" action="{{ url_for('timeslots') }}">
+      <div class="form-group">
+        <label class="form-label">Start Time</label>
+        <input type="text" name="start_time" class="form-control" placeholder="e.g. 09:00 AM" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">End Time</label>
+        <input type="text" name="end_time" class="form-control" placeholder="e.g. 10:00 AM" required>
+      </div>
+      <button type="submit" class="btn" style="width:100%;justify-content:center;">✅ Add Time Slot</button>
+    </form>
+    <div style="margin-top:1.25rem;padding:1rem;background:rgba(0,210,255,.07);border-radius:8px;border:1px solid rgba(0,210,255,.2);">
+      <p style="font-size:.78rem;color:var(--text-muted);line-height:1.7;">
+        <strong style="color:var(--info);">💡 Tip:</strong><br>
+        Configure exactly <strong style="color:var(--text);">8 time slots</strong> for the timetable (P1–P7 + Remedial).<br>
+        Example order: 9:00–10:00, 10:00–11:00, 11:15–12:15, 12:15–1:15, 2:00–3:00, 3:00–4:00, 4:00–5:00, 5:00–5:45
+      </p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📋 Configured Time Slots</div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Period</th>
+            <th>Start Time</th>
+            <th>End Time</th>
+            <th style="text-align:right;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in timeslots %}
+          <tr>
+            <td>
+              <span class="badge badge-primary">P{{ loop.index }}</span>
+            </td>
+            <td><strong>{{ s.start_time }}</strong></td>
+            <td>{{ s.end_time }}</td>
+            <td style="text-align:right;">
+              <form method="POST" action="{{ url_for('delete_timeslot', id=s.id) }}"
+                    onsubmit="return confirm('Delete this time slot?')" style="display:inline;">
+                <button type="submit" class="btn btn-danger btn-sm">🗑 Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:2rem;">
+            No time slots configured yet.<br>
+            <small>Add 8 slots to enable timetable generation.</small>
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
